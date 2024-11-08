@@ -165,7 +165,6 @@ class OverlayWindow(QMainWindow):
             return False  # Don't propagate the event when we use it
         return True  # Propagate the event in all other cases
     
-    
     def toggle_visibility(self):
         self.is_visible = not self.is_visible
         self.setVisible(self.is_visible)
@@ -204,9 +203,12 @@ class OverlayWindow(QMainWindow):
         self.save_items()  # Save items before closing
         keyboard.unhook_all()
         QApplication.quit()
+        
+    def main():
+        app = QApplication(sys.argv)
+        overlay = OverlayWindow()
+        overlay.show()
+        sys.exit(app.exec_())
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    overlay = OverlayWindow()
-    overlay.show()
-    sys.exit(app.exec_())
+    OverlayWindow.main()
