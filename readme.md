@@ -7,3 +7,4 @@
 * Make it so it is the overlay, and then various other components such as todo list and what not be separate from the overlay itself
 * Add ability to add images as one of the components
 * Have a settings page where the user can change the commands used to close the program, or set another set of keys to hide/unhide the overlay
+* Separate the code into different files
