@@ -87,7 +87,7 @@ class OverlayWindow(QMainWindow):
         self.item_input = QLineEdit()
         self.item_input.setStyleSheet("""
             QLineEdit {
-                background-color: rgba(60, 60, 60, 180);
+                background-color: rgba(0, 100, 60, 180);
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -128,6 +128,8 @@ class OverlayWindow(QMainWindow):
         self.setMaximumSize(800, 600)
 
     def paintEvent(self, event):
+        # Used to draw three red dots on the bottom right of the overlay to show
+        # That we can make it bigger or smaller
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
