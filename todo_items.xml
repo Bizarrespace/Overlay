@@ -1,4 +1,24 @@
 <?xml version='1.0' encoding='utf-8'?>
 <todo_list>
-  <item>Zora Mag</item>
+  <item>
+    <text>carrots</text>
+  </item>
+  <item>
+    <text>gun powder</text>
+  </item>
+  <item>
+    <text>Tommy</text>
+  </item>
+  <item>
+    <text>watermelon</text>
+  </item>
+  <item>
+    <text>wart</text>
+  </item>
+  <item>
+    <text>sand</text>
+  </item>
+  <item>
+    <text>bambboo</text>
+  </item>
 </todo_list>
