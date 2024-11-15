@@ -7,6 +7,23 @@ from PyQt5.QtCore import Qt, QPoint, QRect
 from PyQt5.QtGui import QPainter, QColor, QPixmap
 import keyboard
 
+
+class DraggableListWidget(QListWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Enable drag and drop
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QListWidget.InternalMove)
+        self.setDefaultDropAction(Qt.MoveAction)
+        
+    def dropEvent(self, event):
+        super().dropEvent(event)
+        # Notify the parent window to save the new order
+        if isinstance(self.parent(), OverlayWindow):
+            self.parent().save_items()
+            
+
 class OverlayWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -105,8 +122,8 @@ class OverlayWindow(QMainWindow):
                 }
             """)
         
-        # Todo List Setup
-        self.todo_list = QListWidget()
+        # Replace QListWidget with DraggableListWidget
+        self.todo_list = DraggableListWidget()
         self.todo_list.setStyleSheet("""
             QListWidget {
                 background-color: rgba(40, 40, 40, 180);
@@ -114,6 +131,18 @@ class OverlayWindow(QMainWindow):
                 border: none;
                 border-radius: 5px;
                 padding: 5px;
+            }
+            QListWidget::item {
+                background-color: rgba(60, 60, 60, 180);
+                border-radius: 3px;
+                margin: 2px;
+                padding: 4px;
+            }
+            QListWidget::item:selected {
+                background-color: rgba(70, 130, 180, 180);
+            }
+            QListWidget::item:hover {
+                background-color: rgba(80, 80, 80, 180);
             }
         """)
         
@@ -217,7 +246,6 @@ class OverlayWindow(QMainWindow):
         else:
             self.right_panel.hide()
             self.update_window_size(False)
-            
             
     def upload_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
