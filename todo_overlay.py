@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                            QListWidget, QPushButton, QLineEdit, QMessageBox, QHBoxLayout, QLabel, QFileDialog, QListWidgetItem)
 from PyQt5.QtCore import Qt, QPoint, QRect
 from PyQt5.QtGui import QPainter, QColor, QPixmap
+from datetime import datetime
 import keyboard
 
 
@@ -23,7 +24,6 @@ class DraggableListWidget(QListWidget):
         if isinstance(self.parent(), OverlayWindow):
             self.parent().save_items()
             
-
 class OverlayWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -37,7 +37,7 @@ class OverlayWindow(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.is_visible = True
         self.resizing = False
-        self.resize_margin = 15
+        self.resize_margin = 30
         
         keyboard.on_press_key("enter", self.handle_hotkey, suppress=False)
         keyboard.on_press_key("`", self.close_program, suppress=True)
@@ -60,6 +60,11 @@ class OverlayWindow(QMainWindow):
             if image_path:
                 image = ET.SubElement(item, "image")
                 image.text = image_path
+                
+                if "clipboard_image_" in image_path:
+                    image.set("source", "clipboard")
+                else:
+                    image.set("source", "file")
                 
         tree = ET.ElementTree(root)
         ET.indent(tree, space="  ")
@@ -247,30 +252,100 @@ class OverlayWindow(QMainWindow):
             self.right_panel.hide()
             self.update_window_size(False)
             
-    def upload_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Select Image",
-            "",
-            "Images (*.png *.jpg *.jpeg *.bmp)"
-        )
-        if file_path:
-            current_item = self.todo_list.currentItem()
-            if current_item:
-                pixmap = QPixmap(file_path)
-                scaled_pixmap = pixmap.scaled(
-                    self.image_label.size(), 
-                    Qt.KeepAspectRatio, 
-                    Qt.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled_pixmap)
-                current_item.setData(Qt.UserRole, file_path)
-                self.show_image_panel(True)
-                self.save_items()
+    def upload_image(self, from_clipboard=False):
+        current_item = self.todo_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Selection", 
+                            "Please select a todo item first.")
+            return
 
+        if from_clipboard:
+            print("Attempting to get image from clipboard...")  # Debug print
+            clipboard = QApplication.clipboard()
+            mime_data = clipboard.mimeData()
+            
+            if mime_data.hasImage():
+                print("Found image in clipboard")  # Debug print
+                pixmap = QPixmap(clipboard.image())
+            else:
+                QMessageBox.warning(self, "Clipboard Empty", 
+                                "No image found in clipboard.")
+                print("No image found in clipboard")  # Debug print
+                return
+        else:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, 
+                "Select Image",
+                "",
+                "Images (*.png *.jpg *.jpeg *.bmp)"
+            )
+            if not file_path:
+                return
+            pixmap = QPixmap(file_path)
+
+        # Add error checking for pixmap
+        if pixmap.isNull():
+            QMessageBox.warning(self, "Error", 
+                            "Failed to load image from clipboard.")
+            print("Failed to create pixmap from clipboard image")  # Debug print
+            return
+
+        try:
+            scaled_pixmap = pixmap.scaled(
+                self.image_label.size(), 
+                Qt.KeepAspectRatio, 
+                Qt.SmoothTransformation
+            )
+            self.image_label.setPixmap(scaled_pixmap)
+            
+            if from_clipboard:
+                # Create images directory if it doesn't exist
+                save_dir = Path("images")
+                save_dir.mkdir(exist_ok=True)
+                
+                # Generate unique filename using timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_path = save_dir / f"clipboard_image_{timestamp}.png"
+                
+                if pixmap.save(str(file_path), "PNG"):
+                    print(f"Successfully saved clipboard image to: {file_path}")
+                else:
+                    print(f"Failed to save clipboard image to: {file_path}")
+                    return
+                    
+            current_item.setData(Qt.UserRole, str(file_path))
+            self.show_image_panel(True)
+            self.save_items()
+            
+        except Exception as e:
+            print(f"Error processing image: {str(e)}")
+            QMessageBox.warning(self, "Error", 
+                            f"Error processing image: {str(e)}")
+
+    def keyPressEvent(self, event):
+        # Check for Ctrl+V
+        if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
+            self.upload_image(from_clipboard=True)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+            
     def clear_image(self):
         current_item = self.todo_list.currentItem()
         if current_item:
+            # Get the image path before clearing the data
+            image_path = current_item.data(Qt.UserRole)
+            if image_path:
+                try:
+                    # Convert string path to Path object
+                    path = Path(image_path)
+                    # Only delete if it's in our images directory
+                    if path.exists() and "images" in str(path):
+                        path.unlink()  # Delete the file
+                        print(f"Deleted image file: {path}")
+                except Exception as e:
+                    print(f"Error deleting image file: {e}")
+            
             current_item.setData(Qt.UserRole, None)
             self.image_label.clear()
             self.show_image_panel(False)
@@ -325,10 +400,23 @@ class OverlayWindow(QMainWindow):
             return
         
         for item in selected_items:
+            # Clean up associated image before deleting the item
+            image_path = item.data(Qt.UserRole)
+            if image_path:
+                try:
+                    path = Path(image_path)
+                    # Only delete if it's in our images directory
+                    if path.exists() and "images" in str(path):
+                        path.unlink()  # Delete the file
+                        print(f"Deleted image file: {path}")
+                except Exception as e:
+                    print(f"Error deleting image file: {e}")
+            
+            # Remove the item from the list
             row = self.todo_list.row(item)
             self.todo_list.takeItem(row)
         
-        self.save_items()  # Save after deleting
+        self.save_items()
     
     def handle_hotkey(self, e):
         if keyboard.is_pressed('shift'):
